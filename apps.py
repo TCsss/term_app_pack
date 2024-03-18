@@ -5,8 +5,8 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Any, Literal, Iterable, Generic, TypeVar
 
-from .utils import Ctrl, SequencePointer, trim
-from .termutils import XTermApplication, LineBuffer, contextprotected
+from term_app_pack.utils import Ctrl, SequencePointer, trim
+from term_app_pack.termutils import XTermApplication, LineBuffer, contextprotected
 
 _T = TypeVar('_T')
 
