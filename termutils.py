@@ -19,7 +19,7 @@ from types import TracebackType
 from typing import Any, Callable, TextIO, Type, TypeVar, final, overload
 from weakref import WeakSet
 
-import term_app_pack.utils as t
+from term_app_pack.utils import Ctrl
 
 # BLACK MAGIC, DO NOT TOUCH
 # jk
@@ -255,8 +255,8 @@ class TermInReader:
       sys.stdout.flush()
       return sys.stdin.read(max_chars)
 
-  def bind(self, code: t.Ctrl | str, func: Callable[[], Any] | partial):
-    if isinstance(code, t.Ctrl):
+  def bind(self, code: Ctrl | str, func: Callable[[], Any] | partial):
+    if isinstance(code, Ctrl):
       for _code in code.codes:
         self.bind(_code, func)
     else:
@@ -454,45 +454,46 @@ class LineBuffer:
     return result
 
   def insert(self, char: str):
-    if char != t.Ctrl.ENTER and char.isspace() or len(char) == 1 and ord(char) not in range(0x00, 0x20):
+    if char != Ctrl.ENTER and char.isspace() or len(char) == 1 and ord(char) not in range(0x00, 0x20):
       self._line = f'{self._line[:self._pos]}{char}{self._line[self._pos:]}'
       self._pos += 1
 
   def key(self, char: str) -> str | None:
     # if char == '\b' and self._pos < len(self._line) or char in ('\x7f', '\x08') and self._left():
-    if char in (t.Ctrl.DEL, t.Ctrl.BACKSPACE):
-      if char == t.Ctrl.DEL and self._pos < len(self._prompt + self._line) or char == t.Ctrl.BACKSPACE and self.cursor_left():
+    if char in (Ctrl.DEL, Ctrl.BACKSPACE):
+      if char == Ctrl.DEL and self._pos < len(
+          self._prompt + self._line) or char == Ctrl.BACKSPACE and self.cursor_left():
         true_pos = self._pos - len(self._prompt)
         self._line = self._line[:true_pos] + self._line[true_pos + 1:]
-    elif char == t.Ctrl.TAB:
+    elif char == Ctrl.TAB:
       self.insert('\t'.expandtabs(self.__tabsize))
     else:
       self.insert(char)
       if self.__cursor_movement:
-        if char == t.Ctrl.R_ARROW:
+        if char == Ctrl.R_ARROW:
           self.cursor_right()
-        elif char == t.Ctrl.L_ARROW:
+        elif char == Ctrl.L_ARROW:
           self.cursor_left()
-        elif char == t.Ctrl.HOME:
+        elif char == Ctrl.HOME:
           self.cursor_left(len(self._line))
-        elif char == t.Ctrl.END:
+        elif char == Ctrl.END:
           self.cursor_right(len(self._line))
-        elif char in (t.Ctrl.CTRL_LARROW, t.Ctrl.OPT_LARROW):
+        elif char in (Ctrl.CTRL_LARROW, Ctrl.OPT_LARROW):
           true_pos = self._pos - len(self._prompt)
           substr = self._line[0:true_pos]
           offset = true_pos - m.end() if (m := re.search(r'.*(?<!\s)(?=\s+\S+)', substr)) else len(self._line)
           self.cursor_left(offset)
-        elif char in (t.Ctrl.CTRL_RARROW, t.Ctrl.OPT_RARROW):
+        elif char in (Ctrl.CTRL_RARROW, Ctrl.OPT_RARROW):
           true_pos = self._pos - len(self._prompt)
           offset = m.end() + 1 if (m := re.search(r'\s+(?=\S)', self._line[true_pos + 1:])) else len(self._line)
           self.cursor_right(offset)
       if self.__use_history:
-        if char == t.Ctrl.U_ARROW:
+        if char == Ctrl.U_ARROW:
           self.history_up()
-        elif char == t.Ctrl.D_ARROW:
+        elif char == Ctrl.D_ARROW:
           self.history_down()
       if self.__send_with_enter:
-        if char == t.Ctrl.ENTER:
+        if char == Ctrl.ENTER:
           return self.enter_send()
 
   def with_csi(self) -> str:
