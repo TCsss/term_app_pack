@@ -526,7 +526,9 @@ def instant_input(__prompt: str = '', max_char: int | None = None) -> str:
       def _read():
         char = msvcrt.getwch()
         if char == '\x03':
+          sys.stdout.write('^C')
           raise KeyboardInterrupt
+        sys.stdout.write(char)
         return char
 
       sys.stdout.write(__prompt)
