@@ -461,8 +461,7 @@ class LineBuffer:
   def key(self, char: str) -> str | None:
     # if char == '\b' and self._pos < len(self._line) or char in ('\x7f', '\x08') and self._left():
     if char in (Ctrl.DEL, Ctrl.BACKSPACE):
-      if char == Ctrl.DEL and self._pos < len(
-          self._prompt + self._line) or char == Ctrl.BACKSPACE and self.cursor_left():
+      if char == Ctrl.DEL and self._pos < len(self._prompt + self._line) or char == Ctrl.BACKSPACE and self.cursor_left():
         true_pos = self._pos - len(self._prompt)
         self._line = self._line[:true_pos] + self._line[true_pos + 1:]
     elif char == Ctrl.TAB:
@@ -523,8 +522,17 @@ def instant_input(__prompt: str = '', max_char: int | None = None) -> str:
       return '' if answer in '\r\n' else answer
     except (OSError, ImportError):
       import msvcrt
+
+      def _read():
+        char = msvcrt.getwch()
+        if char == '\x03':
+          raise KeyboardInterrupt
+        return char
+
       sys.stdout.write(__prompt)
       sys.stdout.flush()
-      return ''.join(msvcrt.getwche() for _ in range(max_char))
+      answer = ''.join(_read() for _ in range(max_char))
+      sys.stdout.write('\n')
+      return '' if answer in '\r\n' else answer
   else:
     return input(__prompt)
