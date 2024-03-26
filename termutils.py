@@ -269,7 +269,7 @@ class TermInReader:
 
   def new_settings(self):
     if S_ISFIFO(os.fstat(0).st_mode):
-      raise TypeError('Reading from a pipe disrupts Sudoku input')
+      raise TypeError('Cannot read keyboard input from stdin when piped')
     if self.normal:
       try:
         import tty, termios

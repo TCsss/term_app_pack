@@ -120,7 +120,6 @@ class FuzzyFinder(XTermApplication):
       alternate_buffer=True,
       alternate_scroll=True,
       auto_wrap=False,
-      scrolling_region=(0, self.termsize.lines - 2),
       mouse_events=True,
       recorder_hooks=(self.handle_key,)
     )
