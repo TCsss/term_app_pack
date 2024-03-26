@@ -231,12 +231,15 @@ class FuzzyFinder(XTermApplication):
       if unhighlight:
         self.write(f'\x1b[0K{self._format_normal_line(self._sublist[index], self.termsize.columns)}')
       else:
-        self.write(f'\x1b[48;5;22m \x1b[2;39m\u2590\x1b[22m \x1b[31;1m>\x1b[39;22m '
-                   f'{self.rjust_line(self._format_item(self._sublist[index]))}\x1b[0m')
+        self.write(self.rjust_line(
+          f'\x1b[48;5;22m \x1b[2;39m\u2590\x1b[22m \x1b[31;1m>\x1b[39;22m {self._format_item(self._sublist[index])}'
+        ))
+        self.write('\x1b[0m')
         # f'{self._format_item(self._sublist[index]):<{self.termsize.columns}}\x1b[0m')
       self.write('\x1b8')
 
   def rjust_line(self, item: str) -> str:
+    # print(item, len(re.sub(RE_ANSI, '', item)))
     width = self.termsize.columns - len(re.sub(RE_ANSI, '', item))
     return item + ' ' * width
 
