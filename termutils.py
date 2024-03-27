@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import os
 import re
 import select
@@ -8,7 +7,6 @@ import shutil
 import subprocess
 import sys
 import time
-import unicodedata
 from abc import abstractmethod
 from collections.abc import Sequence, Iterable
 from contextlib import AbstractContextManager
@@ -19,7 +17,7 @@ from types import TracebackType
 from typing import Any, Callable, TextIO, Type, TypeVar, final, overload
 from weakref import WeakSet
 
-from term_app_pack.utils import Ctrl
+from term_app_pack.utils import Ctrl, _unicode_len
 
 # BLACK MAGIC, DO NOT TOUCH
 # jk
@@ -354,11 +352,6 @@ class TermInReader:
 
   def __hash__(self) -> int:
     return id(self)
-
-
-@functools.lru_cache
-def _unicode_len(string: str) -> int:
-  return sum({'F': 2, 'W': 2}.get(unicodedata.east_asian_width(char), 1) for char in string)
 
 
 class LineBuffer:

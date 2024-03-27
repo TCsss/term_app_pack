@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from enum import Enum
+import functools
 from typing import Generic, TypeVar
+import unicodedata
 
 
 def _join(ctrl0: Ctrl, *ctrls: Ctrl) -> tuple[str, ...]:
@@ -10,6 +12,7 @@ def _join(ctrl0: Ctrl, *ctrls: Ctrl) -> tuple[str, ...]:
   return sum(((ctrl,) if isinstance(ctrl, str) else ctrl for ctrl in _ctrls), ())
 
 
+@functools.lru_cache
 def trim(string: str, precision: int, rstart: int = 0) -> str:
   """Trims a `string` to a `precision` if needed,
   and replaces the string from `rstart` with '...', otherwise nothing is done."""
@@ -142,3 +145,8 @@ class Ctrl(Enum):
   NAV = _join(ARROW, HOME, END, PG_UP, PG_DOWN)
   CTRL = _join(CTRL_A, CTRL_B, CTRL_C, CTRL_D, CTRL_E, CTRL_F, CTRL_G, CTRL_H, CTRL_I, CTRL_J, CTRL_K, CTRL_L, CTRL_M,
                CTRL_N, CTRL_O, CTRL_P, CTRL_Q, CTRL_R, CTRL_S, CTRL_T, CTRL_U, CTRL_V, CTRL_W, CTRL_X, CTRL_Y, CTRL_Z)
+
+
+@functools.lru_cache
+def _unicode_len(string: str) -> int:
+  return sum({'F': 2, 'W': 2}.get(unicodedata.east_asian_width(char), 1) for char in string)
