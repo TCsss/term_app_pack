@@ -5,8 +5,8 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Any, Literal, Iterable, Generic, TypeVar
 
-from term_app_pack.utils import Ctrl, SequencePointer, _unicode_len, trim
-from term_app_pack.termutils import XTermApplication, LineBuffer, contextprotected
+from .utils import Ctrl, SequencePointer, _unicode_len, trim
+from .termutils import XTermApplication, LineBuffer, contextprotected
 
 _T = TypeVar('_T')
 
@@ -92,9 +92,8 @@ class BaseMenu(XTermApplication):
     if self.in_application_context:
       self.display(cleanup=False)
 
-  def start(self):
+  def open(self):
     self.display(cleanup=False)
-    super(BaseMenu, self).start()
 
   @dataclass
   class _Menu(Generic[_T]):
@@ -148,7 +147,7 @@ class FuzzyFinder(XTermApplication):
     return self._value
 
   @contextprotected
-  def start(self):
+  def open(self):
     self.footer()
     self.writelines()
     self.highlight(self._sublist.pointer)

@@ -6,6 +6,7 @@ import select
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from abc import abstractmethod
 from collections.abc import Sequence, Iterable
@@ -17,7 +18,7 @@ from types import TracebackType
 from typing import Any, Callable, TextIO, Type, TypeVar, final, overload
 from weakref import WeakSet
 
-from term_app_pack.utils import Ctrl, _unicode_len
+from .utils import Ctrl, _unicode_len
 
 # BLACK MAGIC, DO NOT TOUCH
 # jk
@@ -75,11 +76,11 @@ class XTermApplication(AbstractContextManager):
     ...
 
   def __init__(
-      self, *,
-      target: TextIO = sys.stdout,
-      recorder_hooks: Iterable[Callable[[str], Any]] = (),
-      safe_exceptions: tuple[type[BaseException], ...] = (KeyboardInterrupt, SystemExit),
-      **kwargs
+    self, *,
+    target: TextIO = sys.stdout,
+    recorder_hooks: Iterable[Callable[[str], Any]] = (),
+    safe_exceptions: tuple[type[BaseException], ...] = (KeyboardInterrupt, SystemExit),
+    **kwargs
   ):
     # if not os.environ['TERM'].startswith('xterm'):
     #   raise TypeError('This terminal does not support XTERM ANSI escape sequences required for this application.')
@@ -90,8 +91,18 @@ class XTermApplication(AbstractContextManager):
     self._in_app = False
 
   @abstractmethod
+  def open(self):
+    ...
+
+  @final
   def start(self):
+    self.open()
     self.recorder.start()
+
+  @final
+  def run(self):
+    self.open()
+    self.recorder.run()
 
   @property
   def in_application_context(self):
@@ -126,11 +137,11 @@ class XTermApplication(AbstractContextManager):
       return self._target.flush()
 
   def __enter__(self):
-    self.open()
+    self._open()
     return self
 
   @final
-  def open(self):
+  def _open(self):
     os.system('')
     self._target.write('\x1b[?7h\x1b[?25h\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?1003l\x1b[?1l')
     # self.restore_defaults()
@@ -222,9 +233,8 @@ def contextprotected(method: _FuncT) -> _FuncT:
 
 @final
 class XTermApplicationEmpty(XTermApplication):
-  @contextprotected
-  def start(self):
-    super(XTermApplicationEmpty, self).start()
+  def open(self):
+    return
 
 
 # turn into class
@@ -300,6 +310,9 @@ class TermInReader:
         self.normal = True
 
   def start(self, timeout: float | None = None) -> None:
+    threading.Thread(target=self.run, args=(timeout,)).start()
+
+  def run(self, timeout: float | None = None) -> None:
     if any(not instance.normal for instance in self.__instances if instance is not self):
       raise TypeError('conflicting terminal recorders')
     self.new_settings()
@@ -454,7 +467,8 @@ class LineBuffer:
   def key(self, char: str) -> str | None:
     # if char == '\b' and self._pos < len(self._line) or char in ('\x7f', '\x08') and self._left():
     if char in (Ctrl.DEL, Ctrl.BACKSPACE):
-      if char == Ctrl.DEL and self._pos < len(self._prompt + self._line) or char == Ctrl.BACKSPACE and self.cursor_left():
+      if char == Ctrl.DEL and self._pos < len(
+        self._prompt + self._line) or char == Ctrl.BACKSPACE and self.cursor_left():
         true_pos = self._pos - len(self._prompt)
         self._line = self._line[:true_pos] + self._line[true_pos + 1:]
     elif char == Ctrl.TAB:
