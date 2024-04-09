@@ -153,7 +153,6 @@ class FuzzyFinder(XTermApplication):
     self.highlight(self._sublist.pointer)
     self.search_bar()
     self.flush()
-    super(FuzzyFinder, self).start()
 
   def handle_key(self, key: str):
     self.previous_item(up := key.count('\x1b[M`'))
