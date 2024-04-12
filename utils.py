@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from enum import Enum
 import functools
 from typing import Generic, TypeVar
 import unicodedata
+
+RE_ANSI: re.Pattern[str] = re.compile(r'\x1B[@-Z\\-_]|[\x80-\x9A\x9C-\x9F]|(?:\x1B\[|\x9B)[0-?]*[ -/]*[@-~]')
 
 
 def _join(ctrl0: Ctrl, *ctrls: Ctrl) -> tuple[str, ...]:
@@ -27,19 +30,19 @@ _T = TypeVar('_T')
 class SequencePointer(list[_T], Generic[_T]):
   # _seq: list[_T]
   _pointer: int
-  __cycle: bool
+  cycle: bool
 
-  def __init__(self, sequence: Iterable[_T], __cycle: bool = True):
+  def __init__(self, __sequence: Iterable[_T], __cycle: bool = True):
     # self._seq = list(sequence)
     self._pointer = 0
-    self.__cycle = __cycle
-    super(SequencePointer, self).__init__(sequence)
+    self.cycle = __cycle
+    super(SequencePointer, self).__init__(__sequence)
 
   def next(self, n: int = 1) -> int:
     _next = self._pointer + n
     _len = self.__len__()
     if _next + 1 > _len:
-      self._pointer = _next - _len if self.__cycle else _len - 1
+      self._pointer = _next - _len if self.cycle else _len - 1
     else:
       self._pointer = _next
     return self._pointer
@@ -48,14 +51,14 @@ class SequencePointer(list[_T], Generic[_T]):
     _prev = self._pointer - n
     _len = self.__len__()
     if _prev < 0:
-      self._pointer = _len + _prev if self.__cycle else 0
+      self._pointer = _len + _prev if self.cycle else 0
     else:
       self._pointer = _prev
     return self._pointer
 
   @property
   def at_end(self):
-    return not self.__cycle and self._pointer == len(self) - 1
+    return not self.cycle and self._pointer == len(self) - 1
 
   @property
   def pointer(self) -> int:
@@ -150,3 +153,7 @@ class Ctrl(Enum):
 @functools.lru_cache
 def _unicode_len(string: str) -> int:
   return sum({'F': 2, 'W': 2}.get(unicodedata.east_asian_width(char), 1) for char in string)
+
+
+def display_len(string: str) -> int:
+  return _unicode_len(re.sub(RE_ANSI, '', string))

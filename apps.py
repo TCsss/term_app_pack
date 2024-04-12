@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import functools
-import re
+import time
 from dataclasses import dataclass
-from typing import Callable, Any, Literal, Iterable, Generic, TypeVar
+from typing import Callable, Any, Literal, Iterable, Generic, TypeVar, Type
 
-from .utils import Ctrl, SequencePointer, _unicode_len, trim
 from .termutils import XTermApplication, LineBuffer, contextprotected
+from .utils import Ctrl, SequencePointer, trim, display_len
 
 _T = TypeVar('_T')
-
-RE_ANSI: re.Pattern[str] = re.compile(r'\x1B[@-Z\\-_]|[\x80-\x9A\x9C-\x9F]|(?:\x1B\[|\x9B)[0-?]*[ -/]*[@-~]')
 
 
 class BaseMenu(XTermApplication):
@@ -33,9 +31,17 @@ class BaseMenu(XTermApplication):
     elif key == Ctrl.ENTER:
       item = menu.items[menu.items.pointer][1]
       if menu.selector:
-        menu.selector(item)
+        try:
+          menu.selector(item)
+        except tuple(menu.catch_exceptions) as err:
+          self.message(str(err))
+          self.recorder.run()
       elif callable(item):
-        item()
+        try:
+          item()
+        except tuple(menu.catch_exceptions) as err:
+          self.message(str(err))
+          self.recorder.run()
       else:
         raise TypeError('internal error: no selector and item not callable')
     else:
@@ -63,7 +69,7 @@ class BaseMenu(XTermApplication):
       _len = min(max(map(len, menu.items)), self.termsize.columns)
       items = (f'{trim(item[0], _len):<{_len}}' for item in menu.items)
       items = (f'\x1b[7m{item}\x1b[0m' if i == menu.items.pointer else item for i, item in enumerate(items))
-      self.write('\x1b[E'.join(items))
+      self.write('\n\r'.join(items))
     self.write('\r\n')
 
   @contextprotected
@@ -92,6 +98,17 @@ class BaseMenu(XTermApplication):
     if self.in_application_context:
       self.display(cleanup=False)
 
+  def option_add_menu(self, menu: _Menu[_T], default_pos: int = 0):
+    def _wrapper():
+      self._add_menu(menu, default_pos)
+
+    return _wrapper
+
+  @contextprotected
+  def message(self, msg: str):
+    self.write(f'\x1b[2K{trim(msg, self.termsize.columns)}\x1b[0G')
+    self.flush()
+
   def open(self):
     self.display(cleanup=False)
 
@@ -100,6 +117,7 @@ class BaseMenu(XTermApplication):
     items: SequencePointer[tuple[str, _T]]
     selector: Callable[[_T], Any] | None = None
     mode: Literal['vertical', 'horizontal'] = 'horizontal'
+    catch_exceptions: Iterable[Type[BaseException]] = ()
 
 
 class FuzzyFinder(XTermApplication):
@@ -239,7 +257,7 @@ class FuzzyFinder(XTermApplication):
 
   def rjust_line(self, item: str) -> str:
     # print(item, len(re.sub(RE_ANSI, '', item)))
-    width = self.termsize.columns - _unicode_len(re.sub(RE_ANSI, '', item))
+    width = self.termsize.columns - display_len(item)
     return item + ' ' * width
 
   def next_item(self, n: int = 1):

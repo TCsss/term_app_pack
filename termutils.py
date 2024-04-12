@@ -53,6 +53,7 @@ class XTermApplication(AbstractContextManager):
   _config: _XtermAppConfig
   _target: TextIO
   _safe_exceptions: tuple[type[BaseException], ...]
+  _min_termsize: os.terminal_size
 
   @overload
   def __init__(self,
@@ -72,6 +73,7 @@ class XTermApplication(AbstractContextManager):
                mouse_events: bool = False,
                recorder_hooks: Sequence[Callable[[str], Any]] = (),
                safe_exceptions: tuple[type[BaseException], ...] = (KeyboardInterrupt, SystemExit),
+               min_termsize: os.terminal_size | tuple[int, int] | None = None,
                target: TextIO = sys.stdout):
     ...
 
@@ -80,15 +82,32 @@ class XTermApplication(AbstractContextManager):
     target: TextIO = sys.stdout,
     recorder_hooks: Iterable[Callable[[str], Any]] = (),
     safe_exceptions: tuple[type[BaseException], ...] = (KeyboardInterrupt, SystemExit),
+    min_termsize: os.terminal_size | tuple[int, int] | None = None,
     **kwargs
   ):
     # if not os.environ['TERM'].startswith('xterm'):
     #   raise TypeError('This terminal does not support XTERM ANSI escape sequences required for this application.')
+    if min_termsize:
+      # self._min_termsize = os.terminal_size(min_termsize)
+      min_termsize = os.terminal_size(min_termsize)
+      # if not self.validate_size():
+      if self.termsize.lines < min_termsize.lines or self.termsize.columns < min_termsize.columns:
+        # print(f'The minimum terminal size required for this application is {min_termsize.columns}x{min_termsize.lines} '
+        #       f'(currently {self.termsize.columns}x{self.termsize.lines}).')
+        raise TypeError(
+          f'The minimum terminal size required for this application is {min_termsize.columns}x{min_termsize.lines} '
+          f'(currently {self.termsize.columns}x{self.termsize.lines}).'
+        )
     self._recorder = TermInReader(*recorder_hooks)
     self._target = target
     self._safe_exceptions = safe_exceptions
     self._config = _XtermAppConfig(**kwargs)
     self._in_app = False
+
+  # def validate_size(self) -> bool:
+  #   if min_termsize := self._min_termsize:
+  #     return self.termsize.lines >= min_termsize.lines and self.termsize.columns >= min_termsize.columns
+  #   return True
 
   @abstractmethod
   def open(self):
