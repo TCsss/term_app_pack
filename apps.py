@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import functools
-import time
 from dataclasses import dataclass
 from typing import Callable, Any, Literal, Iterable, Generic, TypeVar, Type
 
