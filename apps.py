@@ -86,8 +86,9 @@ class BaseMenu(XTermApplication):
   def add_new_menu(self, items: SequencePointer[tuple[str, _T]],
                    selector: Callable[[_T], Any] | None = None,
                    mode: Literal['vertical', 'horizontal'] = 'horizontal',
+                   catch_exceptions: Iterable[Type[BaseException]] = (),
                    default_pos: int = 0):
-    self._add_menu(self._Menu(items, selector, mode), default_pos)
+    self._add_menu(self._Menu(items, selector, mode, catch_exceptions), default_pos)
 
   def _add_menu(self, menu: _Menu[_T], default_pos: int = 0):
     if self.in_application_context:
