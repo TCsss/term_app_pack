@@ -42,7 +42,7 @@ class SequencePointer(list[_T], Generic[_T]):
     _next = self._pointer + n
     _len = self.__len__()
     if _next + 1 > _len:
-      self._pointer = _next - _len if self.cycle else _len - 1
+      self._pointer = _next % _len if self.cycle else _len - 1
     else:
       self._pointer = _next
     return self._pointer
@@ -58,7 +58,8 @@ class SequencePointer(list[_T], Generic[_T]):
 
   @property
   def at_end(self):
-    return not self.cycle and self._pointer == len(self) - 1
+    # return not self.cycle and self._pointer == len(self) - 1
+    return self._pointer == len(self) - 1
 
   @property
   def pointer(self) -> int:
@@ -66,7 +67,8 @@ class SequencePointer(list[_T], Generic[_T]):
 
   @pointer.setter
   def pointer(self, new_position: int) -> None:
-    self._pointer = new_position if new_position < len(self) else len(self) - 1
+    self_len = len(self)
+    self._pointer = new_position if new_position < self_len else new_position % self_len if self.cycle else self_len - 1
 
 
 class Ctrl(Enum):
