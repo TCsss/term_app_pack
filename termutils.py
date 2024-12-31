@@ -54,6 +54,7 @@ class XTermApplication(AbstractContextManager):
   _target: TextIO
   _safe_exceptions: tuple[type[BaseException], ...]
   _min_termsize: os.terminal_size
+  _ring_timer: threading.Timer
 
   @overload
   def __init__(self,
@@ -103,6 +104,8 @@ class XTermApplication(AbstractContextManager):
     self._safe_exceptions = safe_exceptions
     self._config = _XtermAppConfig(**kwargs)
     self._in_app = False
+    self._ring_timer = threading.Timer(3, lambda: 0)
+    self._ring_timer.finished.set()
 
   # def validate_size(self) -> bool:
   #   if min_termsize := self._min_termsize:
@@ -149,6 +152,13 @@ class XTermApplication(AbstractContextManager):
     """Simple redirected and context-protected method `write` of `target`"""
     if self.in_application_context:
       return self._target.write(__s)
+
+  def ring(self):
+    if not self._ring_timer.is_alive():
+      self.write('\a')
+    if self._ring_timer.finished.is_set():
+      self._ring_timer = threading.Timer(3, lambda: 0)
+      self._ring_timer.start()
 
   def flush(self):
     """Simple redirected and context-protected method `flush` of `target`"""

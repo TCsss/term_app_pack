@@ -261,7 +261,9 @@ class FuzzyFinder(XTermApplication):
     return item + ' ' * width
 
   def next_item(self, n: int = 1):
-    if len(self._sublist):
+    if n and len(self._sublist):
+      if self._sublist.pointer + n >= len(self._sublist):
+        self.ring()
       self.highlight(self._sublist.pointer, unhighlight=True)
       self._sublist.next(n)
       if (pointer := self._sublist.pointer) >= self._start_index + self._maxlines:
@@ -271,7 +273,9 @@ class FuzzyFinder(XTermApplication):
       self.flush()
 
   def previous_item(self, n: int = 1):
-    if len(self._sublist):
+    if n and len(self._sublist):
+      if self._sublist.pointer - n < 0:
+        self.ring()
       self.highlight(self._sublist.pointer, unhighlight=True)
       self._sublist.previous(n)
       if (pointer := self._sublist.pointer) < self._start_index:
