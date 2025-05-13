@@ -233,8 +233,6 @@ class XTermApplication(AbstractContextManager):
       self._target.write('\x1b[?1035l')
     if self._config.alternate_buffer:
       self._target.write('\x1b[?1049l')
-    # if self.mouse_events:
-    #   self._target.write('\x1b[?1003l')
 
   def __exit__(self, __exc_type: Type[BaseException] | None, __exc_value: BaseException | None,
                __traceback: TracebackType | None) -> bool | None:
