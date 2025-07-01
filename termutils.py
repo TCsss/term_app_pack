@@ -118,13 +118,21 @@ class XTermApplication(AbstractContextManager):
 
   @final
   def start(self):
-    self.open()
-    self.recorder.start()
+    try:
+      self.open()
+      self.recorder.start()
+    except (RecorderConflict, TtyError) as e:
+      self.close()
+      raise e
 
   @final
   def run(self):
-    self.open()
-    self.recorder.run()
+    try:
+      self.open()
+      self.recorder.run()
+    except (RecorderConflict, TtyError) as e:
+      self.close()
+      raise e
 
   @property
   def in_application_context(self):
@@ -176,6 +184,8 @@ class XTermApplication(AbstractContextManager):
     # self.restore_defaults()
     self._target.write('\x1b[?1h')
     if self._config.alternate_buffer:
+      if S_ISFIFO(os.fstat(0).st_mode):
+        raise TtyError('Cannot read keyboard input from stdin when piped')
       self._target.write('\x1b[?1049h')
     if self._config.utf8_mouse:
       self._target.write('\x1b[?1005h')
@@ -264,6 +274,14 @@ class XTermApplicationEmpty(XTermApplication):
     return
 
 
+class RecorderConflict(BaseException):
+  ...
+
+
+class TtyError(BaseException):
+  ...
+
+
 # turn into class
 class TermInReader:
   __instances: WeakSet[TermInReader] = WeakSet()
@@ -304,12 +322,12 @@ class TermInReader:
 
   def new_settings(self):
     if S_ISFIFO(os.fstat(0).st_mode):
-      raise TypeError('Cannot read keyboard input from stdin when piped')
+      raise TtyError('Cannot read keyboard input from stdin when piped')
     if self.normal:
       try:
         import tty, termios
         if sys.stdin.closed:
-          raise TypeError('stdin is closed')
+          raise TtyError('stdin is closed')
         tty.setraw(sys.stdin.fileno())
         if not self._old_settings:
           self._old_settings = termios.tcgetattr(sys.stdin)
@@ -341,7 +359,7 @@ class TermInReader:
 
   def run(self, timeout: float | None = None) -> None:
     if any(not instance.normal for instance in self.__instances if instance is not self):
-      raise TypeError('conflicting terminal recorders')
+      raise RecorderConflict('conflicting terminal recorders')
     self.new_settings()
     try:
       self.record(timeout)
