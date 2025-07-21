@@ -186,6 +186,8 @@ class XTermApplication(AbstractContextManager):
     if self._config.alternate_buffer:
       if S_ISFIFO(os.fstat(0).st_mode):
         raise TtyError('Cannot read keyboard input from stdin when piped')
+      elif os.getpgrp() != os.tcgetpgrp(sys.stdout.fileno()):
+        raise TtyError('Cannot run application in background')
       self._target.write('\x1b[?1049h')
     if self._config.utf8_mouse:
       self._target.write('\x1b[?1005h')
@@ -314,6 +316,13 @@ class TermInReader:
         self.bind(_code, func)
     else:
       self.bindings.setdefault(code, []).append(func)
+
+  def unbind(self, code: Ctrl | str):
+    if isinstance(code, Ctrl):
+      for _code in code.codes:
+        self.unbind(_code)
+    else:
+      self.bindings.setdefault(code, []).clear()
 
   def switch_hook(self, advance: int = 1):
     self._which += advance

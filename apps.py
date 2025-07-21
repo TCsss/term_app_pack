@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import functools
+import time
+from collections.abc import Generator, Sequence
 from dataclasses import dataclass
 from typing import Callable, Any, Literal, Iterable, Generic, TypeVar, Type
 
@@ -8,6 +10,8 @@ from .termutils import XTermApplication, LineBuffer, contextprotected
 from .utils import Ctrl, SequencePointer, trim, display_len
 
 _T = TypeVar('_T')
+
+# new: idea is to make all (even non abstract) apps class a model, which is to say, derivable
 
 
 class BaseMenu(XTermApplication):
@@ -125,13 +129,19 @@ class FuzzyFinder(XTermApplication):
   _start_index: int
   _maxlines: int
   objects: list[str]
+  _is_loading: bool = False
+  _chunk_generator: Generator[Sequence[str], None, None] | None
   _value: str | None
   _sublist: SequencePointer[str]
   _current_query: str
   _line_buffer: LineBuffer
   _receiver: Callable[[str], Any] | None
 
-  def __init__(self, objects: Iterable[str], receiver: Callable[[str], Any] | None = None):
+  def __init__(self,
+               objects: Sequence[str],
+               receiver: Callable[[str], Any] | None = None,
+               *,
+               chunk_generator: Generator[Sequence[str], None, None] | None = None):
     XTermApplication.__init__(
       self,
       alternate_buffer=True,
@@ -141,12 +151,13 @@ class FuzzyFinder(XTermApplication):
       recorder_hooks=(self.handle_key,)
     )
     self.objects = list(objects)
+    self._chunk_generator = chunk_generator
     self.recorder.bind(Ctrl.CTRL_C, self.exit)
     self.recorder.bind(Ctrl.CTRL_D, self.exit)
     self.recorder.bind(Ctrl.D_ARROW, self.next_item)
     self.recorder.bind(Ctrl.U_ARROW, self.previous_item)
-    self.recorder.bind(Ctrl.PG_UP, functools.partial(self.previous_item, len(self.objects)))
-    self.recorder.bind(Ctrl.PG_DOWN, functools.partial(self.next_item, len(self.objects)))
+    self.recorder.bind(Ctrl.PG_UP, functools.partial(self.previous_item, 99999))
+    self.recorder.bind(Ctrl.PG_DOWN, functools.partial(self.next_item, 99999))
     self.recorder.bind(Ctrl.ENTER, self.send)
     self._receiver = receiver
     self._sublist = SequencePointer(self.objects, False)
@@ -208,10 +219,29 @@ class FuzzyFinder(XTermApplication):
     start = self._start_index
     self.write(
       '{count:\u2500<{length}}'.format(
-        count=f'{self._sublist.pointer + 1}/{start + 1 if total else 0}-{start + display_count}/{total} ',
+        count=f'{self._sublist.pointer + 1}/{start + 1 if total else 0}-{start + display_count}/{total} ' +
+              ('(loading...) ' if self._is_loading else ''),
         length=self.termsize.columns
       )
     )
+
+  def load(self):
+    if self._chunk_generator is not None:
+      try:
+        self._is_loading = True
+        self.footer()
+        self.flush()
+        self.objects.extend(next(self._chunk_generator))
+        old_pointer = self._sublist.pointer
+        self._sublist = SequencePointer(self.objects, False)
+        self._sublist.pointer = old_pointer
+        self._is_loading = False
+        self.writelines()
+        self.highlight(self._sublist.pointer)
+        self.search_bar()
+        self.flush()
+      except StopIteration:
+        self._is_loading = False
 
   @contextprotected
   def search_bar(self):
@@ -262,8 +292,6 @@ class FuzzyFinder(XTermApplication):
 
   def next_item(self, n: int = 1):
     if n and len(self._sublist):
-      if self._sublist.pointer + n >= len(self._sublist):
-        self.ring()
       self.highlight(self._sublist.pointer, unhighlight=True)
       self._sublist.next(n)
       if (pointer := self._sublist.pointer) >= self._start_index + self._maxlines:
@@ -271,6 +299,9 @@ class FuzzyFinder(XTermApplication):
       self.highlight(pointer)
       self.footer()
       self.flush()
+      if self._sublist.pointer + n >= len(self._sublist):
+        self.ring()
+        self.load()
 
   def previous_item(self, n: int = 1):
     if n and len(self._sublist):
@@ -286,6 +317,7 @@ class FuzzyFinder(XTermApplication):
 
   def scroll_to_view(self):
     if (offset := self._sublist.pointer - self._start_index) not in range(0, self._maxlines):
+      # noinspection PyArgumentList
       (self.scroll_up if offset < 0 else self.scroll_down)(abs(offset))
 
   def scroll_up(self, n: int = 1):
